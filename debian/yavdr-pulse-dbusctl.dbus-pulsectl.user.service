@@ -1,0 +1,10 @@
+[Unit]
+Description=Control pulseaudio output via DBus
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/yavdr-pulse-dbusctl
+KillSignal=SIGINT
+
+[Install]
+WantedBy=yavdr-desktop.target

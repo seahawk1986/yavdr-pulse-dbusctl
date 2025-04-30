@@ -1,0 +1,20 @@
+Source: yavdr-pulse-dbusctl
+Maintainer: Alexander Grothe <seahawk1986@gmx.de>
+Section: python
+Priority: optional
+Build-Depends: dh-python,
+  debhelper (>= 12),
+  dpkg-dev,
+  python3,
+  python3-setuptools,
+  python3-setuptools-scm,
+  pybuild-plugin-pyproject,
+Standards-Version: 4.5.1
+Rules-Requires-Root: no
+
+Package: yavdr-pulse-dbusctl
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}
+Description: pulseaudio dbus interfadce for yaVDR
+  A daemon for the user session that exposes a dbus interface for yavdr-backend
+  .

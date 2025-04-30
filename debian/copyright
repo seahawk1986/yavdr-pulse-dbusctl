@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: yavdr-backend
+Source: https://github.com/seahawk1986/yavdr-pulse-dbusctl
+
+Files: *
+Copyright: 2023- Alexander Grothe
+License: GPL-3.0-or-later

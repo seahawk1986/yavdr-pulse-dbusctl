@@ -1,0 +1,12 @@
+#!/usr/bin/make -f
+# export DH_VERBOSE=1
+export PYBUILD_NAME=yavdr-dbus-pulsectl
+export PYBUILD_SYSTEM=pyproject
+export DEB_BUILD_OPTIONS=nocheck
+
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_installsystemduser:
+	dh_installsystemduser --name="dbus-pulsectl"
