@@ -1,3 +1,9 @@
+yavdr-pulse-dbusctl (0.1.1-0yavdr0~resolute) resolute; urgency=medium
+
+  * new version
+
+ -- Alexander Grothe <seahawk1986@gmx.de>  Fri, 12 Dec 2025 18:38:36 +0100
+
 yavdr-pulse-dbusctl (0.1.0-0yavdr0~noble) noble; urgency=medium
 
   * Initial release.

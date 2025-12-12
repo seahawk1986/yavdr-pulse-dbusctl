@@ -4,9 +4,23 @@ import contextlib
 import sdbus
 import pulsectl
 
+from typing import NamedTuple
+
 
 INTERFACE_NAME = "org.yavdr.PulseDBusCtl"
 OBJECT_PATH = "/org/yavdr/PulseDBusCtl"
+
+class Sink(NamedTuple):
+    name: str
+    description: str
+    index: int
+    card: int
+    is_muted: bool
+    channel_count: int
+    volume_values: list[float]
+    port_active: str
+    is_default_sink: bool
+
 
 class PulseDBusControl(
         sdbus.DbusInterfaceCommonAsync,
@@ -37,15 +51,13 @@ class PulseDBusControl(
                 )
             )
         return result
-    
+
     @sdbus.dbus_method_async(
-        input_signature="ss",
-        result_signature="b",
-        flags=sdbus.DbusUnprivilegedFlag
+        input_signature="ss", result_signature="b", flags=sdbus.DbusUnprivilegedFlag
     )
     async def set_profile(self, card_name: str, profile_name: str):
         card = self.pulse.get_card_by_name(card_name)
-        profile = next((p for p in card.profile_list if p.name == profile_name)) # type: ignore
+        profile = next((p for p in card.profile_list if p.name == profile_name))  # type: ignore
         self.pulse.card_profile_set(card, profile)
         return True
 
@@ -53,27 +65,31 @@ class PulseDBusControl(
         result_signature="a(ssixbiadsb)s",
         flags=sdbus.DbusUnprivilegedFlag,
     )
-    async def list_sinks(self):
+    async def list_sinks(self) -> tuple[list[Sink], str]:
         pulse = self.pulse
         default_sink_name = pulse.server_info().default_sink_name
         result = []
 
         for s in pulse.sink_list():
-            result.append((
-                s.name,
-                s.description,
-                s.index,
-                s.card,
-                bool(s.mute),
-                s.channel_count,
-                list(s.volume.values),
-                s.port_active.available_state._value if s.port_active else 'unknown',
-                s.name == default_sink_name,
-            ))
+            result.append(
+                Sink(
+                    s.name,
+                    s.description,
+                    s.index,
+                    s.card,
+                    bool(s.mute),
+                    s.channel_count,
+                    list(s.volume.values),
+                    s.port_active.available_state._value
+                    if s.port_active
+                    else "unknown",
+                    s.name == default_sink_name,
+                )
+            )
 
         print(result)
         return (result, default_sink_name)
-    
+
     @sdbus.dbus_method_async(
         input_signature="s",
         result_signature="b",
