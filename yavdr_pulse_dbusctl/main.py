@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 import asyncio
 import contextlib
+import logging
 import sdbus
 import pulsectl
 
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 
 INTERFACE_NAME = "org.yavdr.PulseDBusCtl"
 OBJECT_PATH = "/org/yavdr/PulseDBusCtl"
 
+
 class Sink(NamedTuple):
     name: str
     description: str
-    index: int
+    idx: int
     card: int
     is_muted: bool
     channel_count: int
@@ -22,30 +24,34 @@ class Sink(NamedTuple):
     is_default_sink: bool
 
 
-class PulseDBusControl(
-        sdbus.DbusInterfaceCommonAsync,
-        interface_name=INTERFACE_NAME):
+class OutputProfile(NamedTuple):
+    name: str
+    description: str
+    profiles: list[tuple[str, str]]
+    is_active: str
 
-    def __init__(self, pulse):
+
+class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_NAME):
+    def __init__(self, pulse: pulsectl.Pulse) -> None:
         self.pulse = pulse
         super().__init__()
 
     @sdbus.dbus_method_async(
-        result_signature='a(ssa(ss)s)',
+        result_signature="a(ssa(ss)s)",
         flags=sdbus.DbusUnprivilegedFlag,
     )
-    async def list_output_profiles(self):
-        cards = self.pulse.card_list()
-        result = []
+    async def list_output_profiles(self) -> list[OutputProfile]:
+        cards: list[Any] = self.pulse.card_list()
+        result: list[OutputProfile] = []
         for card in cards:
             profiles = []
             for p in card.profile_list:
-                if p.available and p.n_sinks > 0 and p.name.startswith('output:'):
+                if p.available and p.n_sinks > 0 and p.name.startswith("output:"):
                     profiles.append((p.name, p.description))
             result.append(
-                (
+                OutputProfile(
                     card.name,
-                    card.proplist['device.description'],
+                    card.proplist["device.description"],
                     profiles,
                     card.profile_active.name,
                 )
@@ -87,7 +93,7 @@ class PulseDBusControl(
                 )
             )
 
-        print(result)
+        logging.info(result)
         return (result, default_sink_name)
 
     @sdbus.dbus_method_async(
@@ -98,13 +104,13 @@ class PulseDBusControl(
     async def set_default_sink(self, sink_name: str) -> bool:
         try:
             target_sink = self.pulse.get_sink_by_name(sink_name)
-        except Exception as e:
-            print("could not get target sink", e)
+        except Exception as _e:
+            logging.exception("could not get target sink")
             return False
         try:
             self.pulse.sink_default_set(target_sink)
-        except Exception as e:
-            print(e)
+        except Exception as _e:
+            logging.exception("could not set default sink:")
             return False
 
         # move all streams to the new default sink
@@ -112,11 +118,12 @@ class PulseDBusControl(
             self.pulse.sink_input_move(stream.index, target_sink.index)
         return True
 
+
 async def main():
     # Open the system bus
     with (
         contextlib.closing(sdbus.sd_bus_open_system()) as system_bus,
-        pulsectl.Pulse("pulse_dbus_ctl") as pulse
+        pulsectl.Pulse("pulse_dbus_ctl") as pulse,
     ):
         # Request a name on the system bus
         await system_bus.request_name_async(INTERFACE_NAME, 0)
@@ -130,7 +137,7 @@ async def main():
         try:
             await asyncio.Future()
         finally:
-            handle.stop() # this prevents a segfault
+            handle.stop()  # this prevents a segfault
 
 
 def run_main():
