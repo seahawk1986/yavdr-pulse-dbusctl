@@ -87,9 +87,11 @@ class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_
                     p.available and p.available != "no" and
                     p.name != "off" and
                     p.n_sinks > 0 and
-                    p.name.startswith("output:")
+                    (not p.name.startswith('input:'))
                 ):
                     profiles.append((p.name, p.description))
+                else:
+                    logging.debug(f"ignoring {p=}")
             if profiles:
                 result.append(
                     OutputProfile(
@@ -170,48 +172,31 @@ class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_
         flags=sdbus.DbusUnprivilegedFlag,
     )
     async def set_default_sink(self, sink_name: str, card_name: str) -> bool:
+        # get the sink name by name
         target_sink = next((s for s in self.pulse.sink_list() if s.name == sink_name), None)
+
+        # otherwise try to wake the card by using it's name
         if not target_sink and card_name:
-            try:
-                card = self.pulse.get_card_by_name(card_name)
-                # look for the profile that creates the sink_name
-                suffix = sink_name.split('.')[-1] 
-                profile = next((p for p in card.profile_list if suffix in p.name), None)
-                
-                if profile:
-                    self.pulse.card_profile_set(card, profile)
-                    loop = asyncio.get_running_loop()
-                    new_sinks = await loop.run_in_executor(None, lambda: wait_for_new_sink(card.index))
-                    target_sink = next((s for s in new_sinks if s.name == sink_name), None) if new_sinks else None
-            except Exception as e:
-                logging.error(f"Fehler beim Wecken der Karte {card_name}: {e}")
+            card = self.pulse.get_card_by_name(card_name)
+            # Profil setzen (A2DP forcieren)
+            profile = next((p for p in card.profile_list if "a2dp" in p.name), None)
+            if profile:
+                self.pulse.card_profile_set(card, profile)
+                # Warten, bis PipeWire den Sink erstellt hat
+                loop = asyncio.get_running_loop()
+                new_sink = await loop.run_in_executor(None, lambda: wait_for_new_sink(card.index))
 
-        if not target_sink:
-            return False
+                if new_sink:
+                    target_sink = new_sink
 
-        self.pulse.sink_default_set(target_sink)
-        # Streams verschieben
-        for stream in self.pulse.sink_input_list():
-            with contextlib.suppress(Exception):
-                self.pulse.sink_input_move(stream.index, target_sink.index)
-        return True
-
-        #logging.info(f"set_default_sink to '{sink_name}'")
-        #try:
-        #    target_sink = self.pulse.get_sink_by_name(sink_name)
-        #except Exception as _e:
-        #    logging.exception(f"could not get target sink {sink_name}")
-        #    return False
-        #try:
-        #    self.pulse.sink_default_set(target_sink)
-        #except Exception as _e:
-        #    logging.exception("could not set default sink:")
-        #    return False
-
-        ## move all streams to the new default sink
-        #for stream in self.pulse.sink_input_list():
-        #    self.pulse.sink_input_move(stream.index, target_sink.index)
-        #return True
+        if target_sink:
+            self.pulse.sink_default_set(target_sink)
+            # Streams verschieben (VDR umschalten)
+            for stream in self.pulse.sink_input_list():
+                with contextlib.suppress(Exception):
+                    self.pulse.sink_input_move(stream.index, target_sink.index)
+            return True
+        return False
 
 
 async def main():
