@@ -13,10 +13,12 @@ OBJECT_PATH = "/org/yavdr/PulseDBusCtl"
 
 
 class ProfileSwitchTimeoutError(sdbus.DbusFailedError):
-    dbus_error_name=f"{INTERFACE_NAME}.Error.ProfileSwitchTimeout"
+    dbus_error_name = f"{INTERFACE_NAME}.Error.ProfileSwitchTimeout"
+
 
 class DeviceNotFoundError(sdbus.DbusFailedError):
-    dbus_error_name=f"{INTERFACE_NAME}.Error.DeviceNotFound"
+    dbus_error_name = f"{INTERFACE_NAME}.Error.DeviceNotFound"
+
 
 class Sink(NamedTuple):
     name: str
@@ -49,7 +51,7 @@ def wait_for_new_sink(card_idx, timeout=2.5):
         start_time = time.time()
         while time.time() - start_time < timeout:
             # wait for the next event or return if the timeout is reached
-            pulse_ev.event_mask_set('sink')
+            pulse_ev.event_mask_set("sink")
 
             # just stop the loop in the callback
             def stop_loop_cb(ev):
@@ -68,6 +70,7 @@ def wait_for_new_sink(card_idx, timeout=2.5):
 
         return None
 
+
 class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_NAME):
     def __init__(self, pulse: pulsectl.Pulse) -> None:
         self.pulse = pulse
@@ -84,10 +87,11 @@ class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_
             profiles = []
             for p in card.profile_list:
                 if (
-                    p.available and p.available != "no" and
-                    p.name != "off" and
-                    p.n_sinks > 0 and
-                    (not p.name.startswith('input:'))
+                    p.available
+                    and p.available != "no"
+                    and p.name != "off"
+                    and p.n_sinks > 0
+                    and (not p.name.startswith("input:"))
                 ):
                     profiles.append((p.name, p.description))
                 else:
@@ -103,7 +107,6 @@ class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_
                 )
         return result
 
-
     @sdbus.dbus_method_async(
         input_signature="ss", result_signature="b", flags=sdbus.DbusUnprivilegedFlag
     )
@@ -113,8 +116,6 @@ class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_
         except Exception as e:
             raise DeviceNotFoundError(f"Card '{card_name}' not found: {e}")
 
-
-
         profile = next((p for p in card.profile_list if p.name == profile_name), None)  # type: ignore
         if not profile:
             raise DeviceNotFoundError(f"Profile '{profile_name}' not available")
@@ -122,14 +123,18 @@ class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_
         self.pulse.card_profile_set(card, profile)
 
         loop = asyncio.get_running_loop()
-        new_sink = await loop.run_in_executor(None, lambda: wait_for_new_sink(card.index))
+        new_sink = await loop.run_in_executor(
+            None, lambda: wait_for_new_sink(card.index)
+        )
 
         if not new_sink:
-            raise ProfileSwitchTimeoutError(f"Profile '{profile_name}' activated, but no audio sink appeared within 2.5 seconds")
+            raise ProfileSwitchTimeoutError(
+                f"Profile '{profile_name}' activated, but no audio sink appeared within 2.5 seconds"
+            )
 
         logging.info(f"found {new_sink=}")
         self.pulse.default_set(new_sink)
-        
+
         # Streams verschieben
         for stream in self.pulse.sink_input_list():
             self.pulse.sink_input_move(stream.index, new_sink.index)
@@ -173,7 +178,9 @@ class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_
     )
     async def set_default_sink(self, sink_name: str, card_name: str) -> bool:
         # get the sink name by name
-        target_sink = next((s for s in self.pulse.sink_list() if s.name == sink_name), None)
+        target_sink = next(
+            (s for s in self.pulse.sink_list() if s.name == sink_name), None
+        )
 
         # otherwise try to wake the card by using it's name
         if not target_sink and card_name:
@@ -184,7 +191,9 @@ class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_
                 self.pulse.card_profile_set(card, profile)
                 # Warten, bis PipeWire den Sink erstellt hat
                 loop = asyncio.get_running_loop()
-                new_sink = await loop.run_in_executor(None, lambda: wait_for_new_sink(card.index))
+                new_sink = await loop.run_in_executor(
+                    None, lambda: wait_for_new_sink(card.index)
+                )
 
                 if new_sink:
                     target_sink = new_sink
@@ -195,6 +204,20 @@ class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_
             for stream in self.pulse.sink_input_list():
                 with contextlib.suppress(Exception):
                     self.pulse.sink_input_move(stream.index, target_sink.index)
+            return True
+        return False
+
+    @sdbus.dbus_method_async(
+        input_signature="sd",
+        result_signature="b",
+        flags=sdbus.DbusUnprivilegedFlag,
+    )
+    async def set_volume(self, sink_name: str, volume: float):
+        target_sink = next(
+            (s for s in self.pulse.sink_list() if s.name == sink_name), None
+        )
+        if target_sink:
+            self.pulse.volume_set_all_chans(target_sink, volume)
             return True
         return False
 
