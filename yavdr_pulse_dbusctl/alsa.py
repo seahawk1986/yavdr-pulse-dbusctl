@@ -106,8 +106,16 @@ class AlsaDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_N
         volume: int,
         muted: bool,
     ) -> list[tuple[str, int, int, tuple[int, int], bool]]:
-        set_mute_state(mixer_name=mixer_name, card_idx=card_idx, should_be_muted=muted)
-        set_volume(mixer_name=mixer_name, card_idx=card_idx, volume=volume)
+        try:
+            set_mute_state(
+                mixer_name=mixer_name, card_idx=card_idx, should_be_muted=muted
+            )
+        except Exception:
+            logging.exception("could not set mute state for {card_idx}:{mixer_name}")
+        try:
+            set_volume(mixer_name=mixer_name, card_idx=card_idx, volume=volume)
+        except Exception:
+            logging.exception(f"could not set volume for {card_idx}:{mixer_name}")
         r = [
             (m.name, m.card_idx, m.volume[0], m.volume_range, m.is_muted)
             for m in list_mutable_mixers()
