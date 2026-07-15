@@ -1,13 +1,10 @@
 [project]
 name = "yavdr-pulse-dbusctl"
 description = "control pulseaudio in a session via a dbus interface on the system bus"
-authors = [{"name" = "Alexander Grothe", "email" = "seahawk1986@gmx.de"}]
+authors = [{ "name" = "Alexander Grothe", "email" = "seahawk1986@gmx.de" }]
 dynamic = ["version"]
 requires-python = ">=3.12"
-dependencies = [
-    "pulsectl",
-    "sdbus",
-]
+dependencies = ["pulsectl", "pyalsaaudio", "sdbus"]
 
 [project.scripts]
 yavdr-pulse-dbusctl = "yavdr_pulse_dbusctl:run_main"
@@ -21,4 +18,4 @@ where = ["."]
 include = ["yavdr_pulse_dbusctl*"]
 
 [tool.setuptools.dynamic]
-version = {attr = "yavdr_pulse_dbusctl.__version__"}
+version = { attr = "yavdr_pulse_dbusctl.__version__" }

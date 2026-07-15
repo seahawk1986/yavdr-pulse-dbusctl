@@ -7,9 +7,11 @@ import pulsectl
 
 from typing import Any, NamedTuple
 
+from yavdr_pulse_dbusctl import alsa
+
 
 INTERFACE_NAME = "org.yavdr.PulseDBusCtl"
-OBJECT_PATH = "/org/yavdr/PulseDBusCtl"
+PULSE_OBJECT_PATH = "/org/yavdr/PulseDBusCtl"
 
 
 class ProfileSwitchTimeoutError(sdbus.DbusFailedError):
@@ -232,15 +234,24 @@ async def main():
         await system_bus.request_name_async(INTERFACE_NAME, 0)
 
         # Create and export the interface on the system bus
-        interface = PulseDBusControl(pulse)
-        handle = interface.export_to_dbus(OBJECT_PATH, system_bus)
+        pulse_interface = PulseDBusControl(pulse)
+        _pulse_handle = pulse_interface.export_to_dbus(PULSE_OBJECT_PATH, system_bus)
+
+        alsa_interface = alsa.AlsaDBusControl()
+        _alsa_handle = alsa_interface.export_to_dbus(alsa.ALSA_OBJECT_PATH, system_bus)
+
         print("D-Bus service running on the system bus... Press Ctrl+C to stop.")
 
         # Keep the event loop running
         try:
             await asyncio.Future()
         finally:
-            handle.stop()  # this prevents a segfault
+            # do something to keep the references around
+            if _alsa_handle == _pulse_handle:
+                pass
+            # pulse_interface.stop()
+            # pulse_handle.stop()  # this prevents a segfault
+            # alsa_handle.stop()
 
 
 def run_main():
