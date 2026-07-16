@@ -1,7 +1,9 @@
+from typing import Annotated
+
 import alsaaudio
 import sdbus
 import logging
-from pydantic import BaseModel
+from pydantic import BaseModel, BeforeValidator
 
 INTERFACE_NAME = "org.yavdr.AlsaDBusCtl"
 ALSA_OBJECT_PATH = "/org/yavdr/PulseDBusCtl/Alsa"
@@ -15,9 +17,13 @@ class DeviceNotFoundError(sdbus.DbusFailedError):
     dbus_error_name = f"{INTERFACE_NAME}.Error.DeviceNotFound"
 
 
+FlexibleInt = Annotated[int, BeforeValidator(lambda x: int(x))]
+
+
 class Mixer(BaseModel):
     name: str
     card_idx: int
+    card_name: str
     volume: list[int]
     volume_range: tuple[int, int]
     is_muted: bool
@@ -55,6 +61,7 @@ def set_volume(card_idx: int, mixer_name: str, volume: int) -> bool:
 
 def list_mutable_mixers() -> list[Mixer]:
     mixer_data: list[Mixer] = []
+    mixer_names: list[str] = alsaaudio.cards()
 
     for card_idx in alsaaudio.card_indexes():
         for mixer_name in alsaaudio.mixers(card_idx):
@@ -64,6 +71,7 @@ def list_mutable_mixers() -> list[Mixer]:
                     Mixer(
                         name=mixer_name,
                         card_idx=card_idx,
+                        card_name=mixer_names[card_idx],
                         volume=[
                             normalize_volume(v)
                             for v in mixer.getvolume(alsaaudio.VOLUME_UNITS_PERCENTAGE)
@@ -83,14 +91,14 @@ def list_mutable_mixers() -> list[Mixer]:
 
 class AlsaDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_NAME):
     @sdbus.dbus_method_async(
-        result_signature="a(sii(ii)b)",
+        result_signature="a(sisi(ii)b)",
         flags=sdbus.DbusUnprivilegedFlag,
     )
     async def list_alsa_mixers(
         self,
-    ) -> list[tuple[str, int, int, tuple[int, int], bool]]:
+    ) -> list[tuple[str, int, str, int, tuple[int, int], bool]]:
         return [
-            (m.name, m.card_idx, m.volume[0], m.volume_range, m.is_muted)
+            (m.name, m.card_idx, m.card_name, m.volume[0], m.volume_range, m.is_muted)
             for m in list_mutable_mixers()
         ]
 
