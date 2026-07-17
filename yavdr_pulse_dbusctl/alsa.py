@@ -104,7 +104,7 @@ class AlsaDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_N
 
     @sdbus.dbus_method_async(
         input_signature="siib",
-        result_signature="a(sii(ii)b)",
+        result_signature="a(sisi(ii)b)",
         flags=sdbus.DbusUnprivilegedFlag,
     )
     async def set_state(
