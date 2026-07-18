@@ -91,7 +91,7 @@ def list_mutable_mixers() -> list[Mixer]:
                 )
                 mixer_data.append(
                     Mixer(
-                        name=f"{mixer_name}{'' if (idx := name_counts[mixer_name]) == 0 else f' {idx + 1}'}",
+                        name=f"{mixer_name}{'' if (idx := name_counts[mixer_name]) == 0 else f' {idx}'}",
                         card_idx=card_idx,
                         card_name=mixer_names[card_idx],
                         volume=[
