@@ -87,9 +87,9 @@ def list_mutable_mixers() -> list[Mixer]:
                 mixer = alsaaudio.Mixer(control=mixer_name, cardindex=card_idx)
                 mixer_data.append(
                     Mixer(
-                        name=mixer_name,
+                        name=f"{mixer_name}{'' if (idx := name_counts[mixer_name]) == 0 else f' {idx + 1}'}",
                         card_idx=card_idx,
-                        card_name=f"{mixer_names[card_idx]}{'' if (idx := name_counts[mixer_name]) == 0 else f' {idx + 1}'}",
+                        card_name=mixer_names[card_idx],
                         volume=[
                             normalize_volume(v)
                             for v in mixer.getvolume(alsaaudio.VOLUME_UNITS_PERCENTAGE)
