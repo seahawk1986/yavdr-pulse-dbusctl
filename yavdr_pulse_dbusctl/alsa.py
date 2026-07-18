@@ -43,15 +43,18 @@ def normalize_volume(volume: int) -> int:
     return volume
 
 
-def get_mixer_id(mixer_name: str) -> int:
+def get_mixer_name_id(mixer_name: str) -> tuple[str, int]:
     idx = 0
-    if m := re.search(r"(?=\s)(?P<idx>\d+)", mixer_name):
-        idx = int(m.groupdict()["idx"]) - 1
-    return idx
+    name = mixer_name
+    if m := re.match(r"(?P<name>\S+)\s(?P<idx>\d+)", mixer_name):
+        md = m.groupdict()
+        idx = int(md["idx"]) - 1
+        name = md["name"]
+    return name, idx
 
 
 def set_mute_state(mixer_name: str, card_idx: int, should_be_muted: bool) -> bool:
-    idx = get_mixer_id(mixer_name)
+    mixer_name, idx = get_mixer_name_id(mixer_name)
 
     mixer = alsaaudio.Mixer(control=mixer_name, cardindex=card_idx, id=idx)
     try:
@@ -62,7 +65,7 @@ def set_mute_state(mixer_name: str, card_idx: int, should_be_muted: bool) -> boo
 
 
 def set_volume(card_idx: int, mixer_name: str, volume: int) -> bool:
-    idx = get_mixer_id(mixer_name)
+    mixer_name, idx = get_mixer_name_id(mixer_name)
 
     mixer = alsaaudio.Mixer(control=mixer_name, id=idx, cardindex=card_idx)
     try:
