@@ -47,7 +47,7 @@ def get_mixer_name_id(mixer_name: str) -> tuple[str, int]:
     name = mixer_name
     if m := re.match(r"(?P<name>\S+)\s(?P<idx>\d+)", mixer_name):
         md = m.groupdict()
-        idx = int(md["idx"]) - 1
+        idx = int(md["idx"])
         name = md["name"]
     return name, idx
 
