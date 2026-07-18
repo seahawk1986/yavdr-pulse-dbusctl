@@ -86,10 +86,12 @@ def list_mutable_mixers() -> list[Mixer]:
                     name_counts[mixer_name] = 0
                 else:
                     name_counts[mixer_name] += 1
-                mixer = alsaaudio.Mixer(control=mixer_name, cardindex=card_idx)
+                mixer = alsaaudio.Mixer(
+                    control=mixer_name, id=name_counts[mixer_name], cardindex=card_idx
+                )
                 mixer_data.append(
                     Mixer(
-                        name=f"{mixer_name}{'' if (idx := name_counts[mixer_name]) == 0 else f' {idx}'}",
+                        name=f"{mixer_name}{'' if (idx := name_counts[mixer_name]) == 0 else f' {idx + 1}'}",
                         card_idx=card_idx,
                         card_name=mixer_names[card_idx],
                         volume=[
