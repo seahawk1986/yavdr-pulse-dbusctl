@@ -3,6 +3,8 @@ from typing import Annotated
 import alsaaudio
 import sdbus
 import logging
+import re
+from collections import defaultdict
 from pydantic import BaseModel, BeforeValidator
 
 INTERFACE_NAME = "org.yavdr.AlsaDBusCtl"
@@ -41,8 +43,17 @@ def normalize_volume(volume: int) -> int:
     return volume
 
 
+def get_mixer_id(mixer_name: str) -> int:
+    idx = 0
+    if m := re.search(r"(?=\s)(?P<idx>\d+)", mixer_name):
+        idx = int(m.groupdict()["idx"]) - 1
+    return idx
+
+
 def set_mute_state(mixer_name: str, card_idx: int, should_be_muted: bool) -> bool:
-    mixer = alsaaudio.Mixer(control=mixer_name, cardindex=card_idx)
+    idx = get_mixer_id(mixer_name)
+
+    mixer = alsaaudio.Mixer(control=mixer_name, cardindex=card_idx, id=idx)
     try:
         mixer.setmute(int(should_be_muted))
     except alsaaudio.ALSAAudioError:
@@ -51,7 +62,9 @@ def set_mute_state(mixer_name: str, card_idx: int, should_be_muted: bool) -> boo
 
 
 def set_volume(card_idx: int, mixer_name: str, volume: int) -> bool:
-    mixer = alsaaudio.Mixer(control=mixer_name, cardindex=card_idx)
+    idx = get_mixer_id(mixer_name)
+
+    mixer = alsaaudio.Mixer(control=mixer_name, id=idx, cardindex=card_idx)
     try:
         mixer.setvolume(normalize_volume(volume))
         return True
@@ -64,14 +77,16 @@ def list_mutable_mixers() -> list[Mixer]:
     mixer_names: list[str] = alsaaudio.cards()
 
     for card_idx in alsaaudio.card_indexes():
+        name_counts: defaultdict[str, int] = defaultdict(int)
         for mixer_name in alsaaudio.mixers(card_idx):
             try:
+                name_counts[mixer_name] += 1
                 mixer = alsaaudio.Mixer(control=mixer_name, cardindex=card_idx)
                 mixer_data.append(
                     Mixer(
                         name=mixer_name,
                         card_idx=card_idx,
-                        card_name=mixer_names[card_idx],
+                        card_name=f"{mixer_names[card_idx]}{'' if (idx := name_counts[mixer_name]) == 0 else f' {idx + 1}'}",
                         volume=[
                             normalize_volume(v)
                             for v in mixer.getvolume(alsaaudio.VOLUME_UNITS_PERCENTAGE)

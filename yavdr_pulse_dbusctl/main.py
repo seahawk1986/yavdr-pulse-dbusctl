@@ -271,35 +271,24 @@ class PulseDBusControl(sdbus.DbusInterfaceCommonAsync, interface_name=INTERFACE_
 
 async def monitor_pulse(pulse_interface: PulseDBusControl):
     """Überwacht die PipeWire-Verbindung und verbindet bei Absturz automatisch neu."""
-    pulse = None
     while True:
         try:
             logging.debug("Connecting to PulseAudio/PipeWire...")
             # Manuelle Instanziierung statt 'with'-Block
-            pulse = pulsectl.Pulse("pulse_dbus_ctl")
+            with contextlib.closing(pulsectl.Pulse("pulse_dbus_ctl")) as pulse:
+                # Die bestehende D-Bus-Klasse mit der frischen Instanz füttern
+                pulse_interface.update_pulse_instance(pulse)
+                logging.debug("successfully connected to pipewire.")
 
-            # Die bestehende D-Bus-Klasse mit der frischen Instanz füttern
-            pulse_interface.update_pulse_instance(pulse)
-            logging.debug("successfully connected to pipewire.")
-
-            # Endlosschleife zur Verbindungsprüfung (Pulse-Instanz am Leben halten)
-            while True:
-                # Test-Aufruf, um zu prüfen, ob PipeWire noch antwortet
-                pulse.server_info()
-                await asyncio.sleep(2)  # Intervall für Heartbeat/Check
+                # Endlosschleife zur Verbindungsprüfung (Pulse-Instanz am Leben halten)
+                while True:
+                    # Test-Aufruf, um zu prüfen, ob PipeWire noch antwortet
+                    pulse.server_info()
+                    await asyncio.sleep(2)  # Intervall für Heartbeat/Check
 
         except (pulsectl.PulseError, Exception) as e:
+            pulse_interface.update_pulse_instance(None)
             logging.debug(f"PipeWire/pulse connection lost or not available: {e}")
-        finally:
-            if pulse:
-                try:
-                    logging.debug("close old pulse/pipewire connection...")
-                    pulse.close()
-                except Exception:
-                    # Ignorieren, falls das Schließen einer bereits toten Verbindung Fehler wirft
-                    pass
-                pulse = None  # Referenz für den nächsten Durchlauf zurücksetzen
-
             logging.debug("try reconnect in 3 seconds...")
             await asyncio.sleep(3)
 
