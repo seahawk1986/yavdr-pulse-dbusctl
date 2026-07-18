@@ -4,7 +4,6 @@ import alsaaudio
 import sdbus
 import logging
 import re
-from collections import defaultdict
 from pydantic import BaseModel, BeforeValidator
 
 INTERFACE_NAME = "org.yavdr.AlsaDBusCtl"
@@ -80,10 +79,13 @@ def list_mutable_mixers() -> list[Mixer]:
     mixer_names: list[str] = alsaaudio.cards()
 
     for card_idx in alsaaudio.card_indexes():
-        name_counts: defaultdict[str, int] = defaultdict(int)
+        name_counts: dict[str, int] = dict()
         for mixer_name in alsaaudio.mixers(card_idx):
             try:
-                name_counts[mixer_name] += 1
+                if mixer_name not in name_counts:
+                    name_counts[mixer_name] = 0
+                else:
+                    name_counts[mixer_name] += 1
                 mixer = alsaaudio.Mixer(control=mixer_name, cardindex=card_idx)
                 mixer_data.append(
                     Mixer(
